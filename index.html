@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>週末野餐大冒險：完美判斷版</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f8ff;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 { color: #2e7d32; margin-bottom: 5px; }
+        .subtitle { color: #666; margin-bottom: 20px; }
+
+        #progress-container {
+            width: 80%; max-width: 600px;
+            background-color: #e0e0e0;
+            border-radius: 20px; height: 15px;
+            margin-bottom: 30px; overflow: hidden;
+        }
+        #progress-bar {
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.5s ease;
+        }
+
+        #vehicle-container {
+            display: flex; gap: 15px; margin-bottom: 30px;
+            flex-wrap: wrap; justify-content: center;
+        }
+        .vehicle-box {
+            width: 120px; height: 120px;
+            background-color: #ffffff; border: 3px solid #4CAF50;
+            border-radius: 18px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            font-size: 18px; font-weight: bold; color: #2e7d32;
+            cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .vehicle-box:hover { transform: translateY(-5px); }
+        .vehicle-box.disabled {
+            background-color: #e0e0e0; border-color: #9e9e9e;
+            color: #757575; cursor: not-allowed; opacity: 0.6; transform: none;
+        }
+
+        #task-area {
+            display: none; background: white; padding: 30px;
+            border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            max-width: 600px; width: 100%;
+        }
+
+        .level-badge {
+            background-color: #ff5722; color: white;
+            padding: 4px 12px; border-radius: 12px;
+            font-size: 13px; margin-bottom: 15px; display: inline-block;
+        }
+
+        #sentence-display { font-size: 32px; color: #333; margin: 15px 0; font-weight: bold; }
+        #translation-text {
+            font-size: 18px; color: #512da8; margin-bottom: 20px;
+            background: #f3e5f5; padding: 12px; border-radius: 10px; display: none;
+        }
+
+        #mic-btn {
+            padding: 16px 45px; font-size: 20px;
+            background-color: #4caf50; color: white;
+            border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 5px 0 #2e7d32;
+        }
+        #mic-btn.listening { 
+            background-color: #f44336; box-shadow: 0 5px 0 #b71c1c;
+            animation: pulse 1.5s infinite;
+        }
+
+        #feedback-area {
+            display: none; margin-top: 25px; padding: 20px;
+            background-color: #fff9c4; border-radius: 15px; border: 2px dashed #fbc02d;
+        }
+
+        #final-celebration {
+            display: none; font-size: 24px; color: #2e7d32;
+            margin-top: 20px; font-weight: bold;
+        }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <h1>🧺 Weekend Picnic Adventure</h1>
+    <p class="subtitle">點擊交通工具聽聽聲音，開啟練習吧！</p>
+
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div id="vehicle-container">
+        <div class="vehicle-box" id="btn-BUS" data-word="BUS">🚌<br>BUS</div>
+        <div class="vehicle-box" id="btn-BIKE" data-word="BIKE">🚲<br>BIKE</div>
+        <div class="vehicle-box" id="btn-CAR" data-word="CAR">🚗<br>CAR</div>
+        <div class="vehicle-box" id="btn-MRT" data-word="MRT">🚇<br>MRT</div>
+    </div>
+
+    <div id="final-celebration">🏆 恭喜你！已經成為交通工具大師，野餐派對開始囉！ 🎉</div>
+
+    <div id="task-area">
+        <div id="level-indicator" class="level-badge">Level 1</div>
+        <div id="sentence-display"></div>
+        <button id="translate-btn" style="background:none; border:none; color:#999; cursor:pointer; text-decoration:underline;">🔍 偷看中文翻譯</button>
+        <div id="translation-text"></div>
+        <div id="status-msg" style="margin: 15px 0; color: #757575; font-weight: bold;"></div>
+        <button id="mic-btn">🎙️ 點擊開始說話</button>
+
+        <div id="feedback-area">
+            <div id="feedback-en" style="font-size: 20px; font-weight: bold; color: #e65100;"></div>
+            <div id="feedback-zh" style="font-size: 16px; color: #ef6c00; margin-bottom: 15px;"></div>
+            <button id="next-btn" style="background:#388e3c; color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer; font-size:16px;">繼續前進 ➔</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 資料與音效
+        const vehicleSounds = {
+            "BUS": "https://www.soundjay.com/transportation/bus-door-open-1.mp3",
+            "BIKE": "https://www.soundjay.com/misc/bicycle-bell-1.mp3",
+            "CAR": "https://www.soundjay.com/transportation/car-horn-7.mp3",
+            "MRT": "https://www.soundjay.com/transportation/subway-train-pass-1.mp3"
+        };
+
+        const gameData = {
+            "BUS": [{lv:1, en:"Bus", zh:"公車"}, {lv:2, en:"Let's take the bus.", zh:"讓我們搭公車吧。"}, {lv:3, en:"The bus is coming to the bus stop now.", zh:"公車現在正開往公車站。"}],
+            "BIKE": [{lv:1, en:"Bike", zh:"腳踏車"}, {lv:2, en:"I can ride my bike.", zh:"我會騎我的腳踏車。"}, {lv:3, en:"It is a sunny day to ride bikes in the park.", zh:"今天是個在公園騎車的好天氣。"}],
+            "CAR": [{lv:1, en:"Car", zh:"汽車"}, {lv:2, en:"We go by car.", zh:"我們開車去。"}, {lv:3, en:"My dad drives the car to the picnic spot.", zh:"我爸爸開車載我們去野餐地點。"}],
+            "MRT": [{lv:1, en:"MRT", zh:"捷運"}, {lv:2, en:"Take the MRT.", zh:"搭捷運。"}, {lv:3, en:"The MRT is very fast and clean for everyone.", zh:"捷運對大家來說既快速又乾淨。"}]
+        };
+
+        const praises = [
+            {en: "Incredible! Your pronunciation is great.", zh: "太棒了！你的發音很棒。"},
+            {en: "You're a natural! Keep it up.", zh: "你很有天賦！繼續加油。"},
+            {en: "Spotless! Let's move to the next step.", zh: "完美無暇！進入下一步吧。"}
+        ];
+
+        // 2. 狀態管理
+        let currentVehicle = "";
+        let currentLevelIndex = 0; 
+        let completedCount = 0;
+        const finishedVehicles = new Set();
+
+        const taskArea = document.getElementById('task-area');
+        const sentenceDisplay = document.getElementById('sentence-display');
+        const translationText = document.getElementById('translation-text');
+        const micBtn = document.getElementById('mic-btn');
+        const feedbackArea = document.getElementById('feedback-area');
+        const statusMsg = document.getElementById('status-msg');
+
+        // 3. 語音辨識
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.onstart = () => {
+                micBtn.classList.add('listening');
+                micBtn.innerHTML = "👂 正在讀取中...";
+                statusMsg.textContent = "正在聆聽你的發音...";
+            };
+            recognition.onend = () => {
+                micBtn.classList.remove('listening');
+                micBtn.innerHTML = "🎙️ 點擊開始說話";
+            };
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                checkAnswer(transcript);
+            };
+        }
+
+        // 4. 遊戲核心邏輯
+        document.querySelectorAll('.vehicle-box').forEach(box => {
+            box.addEventListener('click', function() {
+                if (this.classList.contains('disabled')) return;
+                currentVehicle = this.getAttribute('data-word');
+                currentLevelIndex = 0;
+                
+                // 播放音效
+                new Audio(vehicleSounds[currentVehicle]).play().catch(()=>{});
+                
+                startLevel();
+            });
+        });
+
+        function startLevel() {
+            const data = gameData[currentVehicle][currentLevelIndex];
+            document.getElementById('level-indicator').textContent = `Level ${data.lv}`;
+            sentenceDisplay.textContent = data.en;
+            translationText.textContent = data.zh;
+            translationText.style.display = 'none';
+            feedbackArea.style.display = 'none';
+            taskArea.style.display = 'block';
+            statusMsg.textContent = "請按下按鈕並唸出英文";
+            
+            // 電腦先示範發音
+            setTimeout(() => speakText(data.en), 800);
+        }
+
+        function checkAnswer(input) {
+            // 核心判定邏輯：過濾標點與空格，採用包含比對
+            const target = gameData[currentVehicle][currentLevelIndex].en.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const spoken = input.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            console.log("Target:", target, "Spoken:", spoken);
+
+            let isCorrect = false;
+            // 只要說的話包含目標(或反之)，且長度不要太離譜
+            if (spoken.includes(target) || target.includes(spoken) && spoken.length > 2) {
+                isCorrect = true;
+            }
+            
+            // 針對 MRT 的特別寬容處理 (因為 AI 常把 MRT 聽成 M R T 或 Martin 等)
+            if (currentVehicle === "MRT" && (spoken.includes("mrt") || spoken.includes("mr") || spoken.includes("t"))) {
+                isCorrect = true;
+            }
+
+            if (isCorrect) {
+                showSuccess();
+            } else {
+                statusMsg.textContent = `❌ 聽起來像 "${input}"，再試一次！`;
+                statusMsg.style.color = "red";
+            }
+        }
+
+        function showSuccess() {
+            const p = praises[Math.floor(Math.random() * praises.length)];
+            document.getElementById('feedback-en').textContent = p.en;
+            document.getElementById('feedback-zh').textContent = p.zh;
+            feedbackArea.style.display = 'block';
+            statusMsg.textContent = "🎉 辨識成功！";
+            statusMsg.style.color = "green";
+            
+            completedCount++;
+            updateProgressBar();
+            speakText(p.en);
+
+            document.getElementById('next-btn').textContent = (currentLevelIndex === 2) ? "單元完成！選別的 ➔" : "進入下一關 ➔";
+        }
+
+        document.getElementById('next-btn').addEventListener('click', () => {
+            if (currentLevelIndex < 2) {
+                currentLevelIndex++;
+                startLevel();
+            } else {
+                // 單元結束
+                finishedVehicles.add(currentVehicle);
+                document.getElementById(`btn-${currentVehicle}`).classList.add('disabled');
+                taskArea.style.display = 'none';
+                
+                if (finishedVehicles.size === 4) {
+                    document.getElementById('final-celebration').style.display = 'block';
+                } else {
+                    alert("這關挑戰成功！要試試看其他交通工具嗎？");
+                }
+            }
+        });
+
+        document.getElementById('translate-btn').addEventListener('click', () => {
+            translationText.style.display = (translationText.style.display === 'none') ? 'block' : 'none';
+        });
+
+        micBtn.addEventListener('click', () => {
+            if (recognition) {
+                try { recognition.start(); } catch(e) { console.log("Recognition already started"); }
+            } else {
+                alert("此瀏覽器不支援語音辨識，請使用 Chrome！");
+            }
+        });
+
+        function updateProgressBar() {
+            const percent = (completedCount / 12) * 100;
+            document.getElementById('progress-bar').style.width = percent + "%";
+        }
+
+        function speakText(text) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-US';
+            u.rate = 0.9;
+            window.speechSynthesis.speak(u);
+        }
+    </script>
+</body>
+</html>
